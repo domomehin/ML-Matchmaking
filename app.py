@@ -9,6 +9,10 @@ import _pickle as pickle
 from random import sample, randint
 from PIL import Image
 from scipy.stats import halfnorm
+from flask import Flask, request
+
+app = Flask(__name__)
+
 
 # Loading the Profiles
 with open("refined_profiles.pkl",'rb') as fp:
@@ -148,11 +152,50 @@ final_categories = [style_types, age, gender]
 names = ["Style", "Age", "Gender"]
 combined = dict(zip(names, final_categories))
     
+@app.route('/connections', methods = 'GET')
+def connections():
+    # need interests
+    # cost 
+    # gender
+    interests = request.args.get("interests")
+    rate = request.args.get("rate")
+    # find the stylists that match to them 
+    # add column in style seeker that is a list of stylists that they have connected to
+    # THis is a many to many relationship.
+    # maybe store it as a list of stylists that belong to a styelseekers
+    # list of connections from most to least
+    connections = []
+    new_profile = pd.DataFrame(columns=df.columns, index=[df.index[-1]+1])
+
+    # Asking for new profile data
+    new_profile['Profiles'] = interests
+    new_profile['Rate'] = rate
+    new_profile['Gender'] = gender
+    new_profile['Age'] = age
+    for col in df.colums:
+        df[col] = df[col].apply(string_convert)
+        new_profile[col] = new_profile[col].apply(string_convert)
+        -[[[[]]]]
+    # top 10 matches using the the newest data in the dataframe
+    # Vectorizing the New Data
+    df_v, input_df = vectorization(df, df.columns, new_profile)
+                
+    # Scaling the New Data
+    new_df = scaling(df_v, input_df)
+                
+    # Predicting/Classifying the new data
+    cluster = model.predict(new_df)
+        
+    # Finding the top 10 related profiles 
+    #### TO DO: make this top till the dataframe ends
+    connections = top_ten(cluster, vect_df, new_df)
+    return connections 
     
+
 ## Interactive Section
 
-
-        
+if __name__ == '__main__':
+    app.run()       
 
     
 
