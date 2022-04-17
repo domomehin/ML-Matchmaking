@@ -1,4 +1,5 @@
 # Library Imports
+from doctest import DocFileCase
 from joblib import load
 import pandas as pd
 import numpy as np
@@ -9,19 +10,24 @@ import _pickle as pickle
 from random import sample, randint
 from PIL import Image
 from scipy.stats import halfnorm
-from flask import Flask, request
+# from flask import Flask, request, abort
+from statistics import median
+import os
 
-app = Flask(__name__)
+# app = Flask(__name__)
 
 
 # Loading the Profiles
-with open("refined_profiles.pkl",'rb') as fp:
+path = os.getcwd() + "/Pickles/refined_profiles.pkl"
+with open(path,'rb') as fp:
     df = pickle.load(fp)
-    
-with open("refined_cluster.pkl", 'rb') as fp:
+
+path = os.getcwd() + "/Pickles/refined_cluster.pkl"    
+with open(path, 'rb') as fp:
     cluster_df = pickle.load(fp)
-    
-with open("vectorized_refined.pkl", 'rb') as fp:
+
+path = os.getcwd() + "/Pickles/vectorized_refined.pkl"      
+with open(path, 'rb') as fp:
     vect_df = pickle.load(fp)
     
 # Loading the Classification Model
@@ -38,34 +44,43 @@ def string_convert(x):
     else:
         return x
  
-    
-def vectorization(df, columns):
+count = 0
+def vectorization(df, columns, input_df):
     """
     Using recursion, iterate through the df until all the categories have been vectorized
     """
     column_name = columns[0]
     
     # Checking if the column name has been removed already
-    if column_name not in ['Profiles', 'Style', 'Gender']:
-        return df
+    if column_name not in ['Profiles', 'Style']:
+        return df, input_df
     
     else:
         # Instantiating the Vectorizer
         vectorizer = CountVectorizer()
-        
-        # Fitting the vectorizer to the Bios
+        print(count)
         x = vectorizer.fit_transform(df[column_name])
+        y = vectorizer.fit_transform(input_df[column_name])
 
         # Creating a new DF that contains the vectorized words
         df_wrds = pd.DataFrame(x.toarray(), columns=vectorizer.get_feature_names_out())
-
+        y_wrds = pd.DataFrame(y.toarray(), columns=vectorizer.get_feature_names_out(), index=input_df.index)
         # Concating the words DF with the original DF
+        df = df.loc[~df.index.duplicated(keep='first')]
+        df_wrds = df_wrds.loc[~df_wrds.index.duplicated(keep='first')]
         new_df = pd.concat([df, df_wrds], axis=1)
+        
+        y_wrds = y_wrds.drop_duplicates(inplace=True)
+        y_df = pd.concat([input_df, y_wrds], 1)
 
         # Dropping the column because it is no longer needed in place of vectorization
         new_df = new_df.drop(column_name, axis=1)
+        new_df = new_df.dropna()
+        new_df = new_df.reset_index(drop=True)
         
-        return vectorization(new_df, new_df.columns) 
+        y_df = y_df.drop(column_name, 1)
+        
+        return vectorization(new_df, new_df.columns, y_df)
 
     
 def scaling(df, input_df):
@@ -110,17 +125,6 @@ def top_ten(cluster, vect_df, input_vect):
     return top_10.astype('object')
 
 
-def example_bios():
-    """
-    Creates a list of random example bios from the original dataset
-    """
-    # Example Bios for the user
-    st.write("-"*100)
-    st.text("Some example Bios:\n(Try to follow the same format)")
-    for i in sample(list(df.index), 3):
-        st.text(df['Bios'].loc[i])
-    st.write("-"*100)
-
 ## Creating a List for each Category
 
 # Probability dictionary
@@ -135,49 +139,58 @@ p['style'] = [0.11, 0.10, 0.07, 0.13, 0.04, 0.06,
 
 # Age (generating random numbers based on half normal distribution)
 age = halfnorm.rvs(loc=18,scale=8, size=df.shape[0]).astype(int)
-# gender = pd.DataFrame(columns=["Gender"])
-gender = []
-for i in range(df.shape[0]):
-    # Range of numbers to represent different labels in each category
-    number = randint(0, 2)
-    if number == 1:
-      gender.append("Female")
-    elif number == 2:
-      gender.append("Non-Binary")
-    else:
-      gender.append("Male")
-gender = pd.DataFrame(gender, columns=["Gender"])
+# gender = pd.DataFrame(gender, columns=["Gender"])
+rate = halfnorm.rvs(loc=20,scale=50, size=df.shape[0]).astype(int)
 
-final_categories = [style_types, age, gender]
-names = ["Style", "Age", "Gender"]
+final_categories = [style_types, age, rate]
+# names = ["Style", "Age", "Gender", "Rate"]
+names = ["Style", "Age", "Rate"]
 combined = dict(zip(names, final_categories))
     
-@app.route('/connections', methods = 'GET')
-def connections():
+# @app.route('/connections', methods = 'GET')
+def connections(interests, rate):
     # need interests
-    # cost 
-    # gender
-    interests = request.args.get("interests")
-    rate = request.args.get("rate")
+    # # cost 
+    # interests = request.args.get("interests")
+    # rate = request.args.get("rate")
     # find the stylists that match to them 
     # add column in style seeker that is a list of stylists that they have connected to
     # THis is a many to many relationship.
     # maybe store it as a list of stylists that belong to a styelseekers
     # list of connections from most to least
+    path = os.getcwd() + "/Pickles/refined_profiles.pkl"
+    with open(path,'rb') as fp:
+        df = pickle.load(fp)
     connections = []
     new_profile = pd.DataFrame(columns=df.columns, index=[df.index[-1]+1])
 
     # Asking for new profile data
-    new_profile['Profiles'] = interests
+    # if not rate:
+    #     # error
+    #     abort(400, description="Please enter the rate you would like to charge")
+    # if not interests:
+    #     abort(400, description="Please answer the questions displayed")
+    for interest in interests:
+        if interest[0].isnumeric():
+            val = interest[:-7]
+            val = val.split('-')
+            val = list(map(int, val))
+            age = round(median(val))
+            interests.remove(interest)
+    temp = ', '.join([str(interest) for interest in interests])
+    new_profile['Profiles'] = temp
     new_profile['Rate'] = rate
-    new_profile['Gender'] = gender
     new_profile['Age'] = age
-    for col in df.colums:
+    style_temp = temp.replace(',', '')
+    new_profile['Style'] = style_temp
+    
+    for col in df.columns:
         df[col] = df[col].apply(string_convert)
         new_profile[col] = new_profile[col].apply(string_convert)
-        -[[[[]]]]
     # top 10 matches using the the newest data in the dataframe
     # Vectorizing the New Data
+    # print(df.shape)
+    df = df[['Profiles', 'Style','Age', 'Rate']]
     df_v, input_df = vectorization(df, df.columns, new_profile)
                 
     # Scaling the New Data
@@ -195,7 +208,12 @@ def connections():
 ## Interactive Section
 
 if __name__ == '__main__':
-    app.run()       
-
+    # app.run()       
+    
+    interests = ['funky', '18-29 groups', 'mature', 'nice']
+    rate = 25, 
+    
+    # id = 'XZ9paLnfzrgtT21uLsuhFlveCwY2'
+    print(connections(interests, rate))
     
 
