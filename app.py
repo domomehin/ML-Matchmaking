@@ -10,11 +10,11 @@ import _pickle as pickle
 from random import sample, randint
 from PIL import Image
 from scipy.stats import halfnorm
-# from flask import Flask, request, abort
+from flask import Flask, request, abort
 from statistics import median
 import os
 
-# app = Flask(__name__)
+app = Flask(__name__)
 
 
 # Loading the Profiles
@@ -63,8 +63,9 @@ def vectorization(df, columns, input_df):
         y = vectorizer.fit_transform(input_df[column_name])
 
         # Creating a new DF that contains the vectorized words
-        df_wrds = pd.DataFrame(x.toarray(), columns=vectorizer.get_feature_names_out())
+        
         y_wrds = pd.DataFrame(y.toarray(), columns=vectorizer.get_feature_names_out(), index=input_df.index)
+        df_wrds = pd.DataFrame(x.toarray(), columns=vectorizer.get_feature_names_out(), index= df.index)
         # Concating the words DF with the original DF
         df = df.loc[~df.index.duplicated(keep='first')]
         df_wrds = df_wrds.loc[~df_wrds.index.duplicated(keep='first')]
@@ -147,8 +148,8 @@ final_categories = [style_types, age, rate]
 names = ["Style", "Age", "Rate"]
 combined = dict(zip(names, final_categories))
     
-# @app.route('/connections', methods = 'GET')
-def connections(interests, rate):
+@app.route('/connections', methods = ['GET'])
+def connections():
     # need interests
     # # cost 
     # interests = request.args.get("interests")
@@ -208,7 +209,7 @@ def connections(interests, rate):
 ## Interactive Section
 
 if __name__ == '__main__':
-    # app.run()       
+    app.run(host='127.0.0.1', port=8000, debug=True)       
     
     interests = ['funky', '18-29 groups', 'mature', 'nice']
     rate = 25, 
