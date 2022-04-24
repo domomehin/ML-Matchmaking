@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.preprocessing import MinMaxScaler
-import streamlit as st
+# import streamlit as st
 import _pickle as pickle
 from random import random, sample, randint
 from PIL import Image
@@ -14,6 +14,7 @@ from scipy.stats import halfnorm
 from flask import Flask, request, abort, jsonify
 from statistics import mean
 import os
+from mongo_db_integration import get_stylist_from_id
 
 app = Flask(__name__)
 
@@ -224,8 +225,12 @@ def connections():
     leftovers = leftovers.loc[leftovers['Cluster #'] != cluster[0]]
 
     indeces = np.concatenate((np.array(matches.index), np.array(leftovers.index)))
-    return jsonify([mapping[mapping['index'] == ind].iloc[0]['id'] for ind in indeces])
-
+    ids = [mapping[mapping['index'] == ind].iloc[0]['id'] for ind in indeces]
+    profiles = []
+    for id in ids:
+        profiles.append(get_stylist_from_id(id))
+    
+    return jsonify(profiles)
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=8000, debug=True)

@@ -31,6 +31,10 @@ def get_styleseekers():
 def get_stylist_from_id(id):
     collection_stylist = client.get_database("match-it").get_collection("stylist")
     documents_stylist = collection_stylist.find({"_id": id})
+    ans = None
+    for doc in documents_stylist:
+        ans = doc
+    return ans
     
 ## interests
 ## ["18-29 group", "$15-$20", "funky", ""]

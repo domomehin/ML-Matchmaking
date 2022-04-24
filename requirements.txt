@@ -7,3 +7,5 @@ streamlit
 Pillow
 scipy
 flask
+pymongo
+pymongo[srv]
